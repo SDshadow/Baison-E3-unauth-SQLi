@@ -1,0 +1,14 @@
+e4 · anonymous system-parameter disclosure (demo deployment, host redacted)
+=============================================================================
+
+POST /e3api/api/SysInfo/SysParamInfo          (empty JSON object body, anonymous)
+
+HTTP 200, ~95 KB
+{"status":"success","message":"获取成功","data":"[ ... ]"}
+
+→ full system parameter table returned, including platform integration
+  credentials such as IAM_SECRET, PLAT_APPKEY, PLAT_SECRET.
+
+This is a separate unauthenticated information-disclosure issue in the same
+product; it is disclosed here because it shares the same root cause (no
+authentication on sensitive API endpoints, client-computable signature only).

